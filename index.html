@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="description" content="SWING STACK - A 3D crane timing stacking action game. Tap at the right moment to drop swinging parts and build the tallest balanced tower.">
+<title>SWING★STACK 3D| スイングスタック 3D</title>
+<style>
+  :root{
+    --accent:#ffb703; --accent2:#fb8500; --cyan:#2ec4b6; --ink:#141428; --ink2:#1e1e3a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;overflow:hidden;background:#0a0a16;
+    font-family:"Segoe UI","Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans CJK SC","Noto Sans JP","Yu Gothic UI",system-ui,sans-serif;
+    color:#fff;user-select:none;-webkit-user-select:none;}
+  body{display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(1200px 800px at 50% 30%, #23234a 0%, #12122a 55%, #0a0a16 100%);}
+  #frame{position:relative;overflow:hidden;touch-action:none;
+    width:min(100vw, calc(100dvh * 9 / 16));height:min(100dvh, calc(100vw * 16 / 9));
+    background:linear-gradient(180deg,#2b2d55 0%,#191a35 60%,#101024 100%);
+    box-shadow:0 0 60px rgba(0,0,0,.6);}
+  @media (min-aspect-ratio: 9/16){ #frame{border-left:1px solid #ffffff22;border-right:1px solid #ffffff22;} }
+  #gl{position:absolute;inset:0;width:100%;height:100%;display:block;}
+
+  /* ---------- HUD ---------- */
+  #hud{position:absolute;inset:0;pointer-events:none;z-index:10;}
+  #topbar{position:absolute;top:0;left:0;right:0;padding:calc(6px + env(safe-area-inset-top)) 10px 6px;
+    display:flex;align-items:flex-start;justify-content:space-between;gap:6px;
+    background:linear-gradient(180deg,rgba(10,10,22,.75),rgba(10,10,22,0));}
+  #stInfo{flex:1;min-width:0;}
+  #stName{font-weight:800;font-size:15px;letter-spacing:.02em;text-shadow:0 1px 4px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #stSub{font-size:11px;opacity:.85;margin-top:2px;text-shadow:0 1px 3px #000;}
+  #statRow{display:flex;gap:10px;margin-top:4px;font-size:11px;opacity:.9;}
+  #statRow b{font-weight:800;}
+  #hearts{font-size:15px;letter-spacing:2px;text-shadow:0 1px 3px #000;margin-top:2px;}
+  .hp{color:#ff5d73;} .hp.off{opacity:.25;}
+  #hudBtns{display:flex;gap:6px;pointer-events:auto;}
+  .iconBtn{width:38px;height:38px;border-radius:12px;border:1px solid #ffffff33;background:#ffffff14;
+    color:#fff;font-size:17px;cursor:pointer;backdrop-filter:blur(4px);}
+  .iconBtn:active{transform:scale(.92);}
+  #hintBar{position:absolute;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom));text-align:center;
+    font-weight:800;font-size:14px;letter-spacing:.08em;color:#ffe9a8;text-shadow:0 2px 8px #000;
+    animation:pulse 1.1s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
+  #floatLayer{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+  .fmsg{position:absolute;left:50%;top:34%;transform:translateX(-50%);font-weight:900;font-size:26px;
+    text-shadow:0 3px 12px #000, 0 0 22px currentColor;animation:floatUp 1.15s ease-out forwards;white-space:nowrap;}
+  .fmsg.small{font-size:15px;opacity:.9;}
+  @keyframes floatUp{0%{opacity:0;transform:translate(-50%,10px) scale(.7)}
+    15%{opacity:1;transform:translate(-50%,0) scale(1.12)}
+    30%{transform:translate(-50%,0) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-64px) scale(1)}}
+  #progressWrap{position:absolute;left:12px;right:12px;bottom:calc(44px + env(safe-area-inset-bottom));
+    height:8px;border-radius:99px;background:#ffffff1a;border:1px solid #ffffff22;overflow:hidden;}
+  #progressBar{height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--cyan),var(--accent));
+    transition:width .25s ease;}
+
+  /* ---------- Screens ---------- */
+  .screen{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:14px;padding:24px;text-align:center;
+    background:radial-gradient(120% 90% at 50% 20%, rgba(30,30,58,.55), rgba(12,12,26,.88) 70%);
+    backdrop-filter:blur(3px);}
+  .hidden{display:none !important;}
+  .gameTitle{font-size:clamp(34px,9vw,52px);font-weight:900;letter-spacing:.02em;line-height:1.05;
+    background:linear-gradient(180deg,#fff6d8,var(--accent) 55%,var(--accent2));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 4px 14px rgba(251,133,0,.45));}
+  .subTitle{font-weight:800;font-size:14px;letter-spacing:.35em;color:var(--cyan);margin-top:-2px;}
+  .tagline{font-size:13px;opacity:.85;line-height:1.7;margin-top:2px;white-space:pre-line;}
+  .btn{pointer-events:auto;cursor:pointer;border:none;border-radius:999px;padding:14px 34px;font-size:16px;
+    font-weight:800;letter-spacing:.06em;color:#241505;background:linear-gradient(180deg,#ffd166,var(--accent2));
+    box-shadow:0 6px 18px rgba(251,133,0,.4), inset 0 1px 0 #fff8;min-width:200px;transition:transform .1s;}
+  .btn:active{transform:scale(.94);}
+  .btn.ghost{background:#ffffff14;color:#fff;border:1px solid #ffffff33;box-shadow:none;min-width:0;padding:11px 22px;font-size:13px;}
+  .btn.small{padding:10px 20px;font-size:13px;min-width:0;}
+  .btnRow{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px;}
+  .titleBtns{display:flex;flex-direction:column;gap:10px;margin-top:14px;align-items:center;}
+  .langSwitch{display:flex;gap:6px;margin-top:16px;}
+  .langSwitch .lb{padding:7px 14px;border-radius:99px;border:1px solid #ffffff33;background:#ffffff10;color:#fff;
+    font-size:12px;font-weight:700;cursor:pointer;}
+  .langSwitch .lb.on{background:var(--accent);color:#241505;border-color:var(--accent);}
+
+  #howBox{max-width:340px;text-align:left;background:#ffffff10;border:1px solid #ffffff22;border-radius:16px;
+    padding:16px 18px;font-size:13px;line-height:1.65;}
+  #howBox div{margin:8px 0;}
+
+  .scrTitle{font-size:20px;font-weight:900;letter-spacing:.2em;color:var(--accent);}
+  #levelGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%;max-width:400px;margin-top:6px;}
+  .lvCell{pointer-events:auto;cursor:pointer;position:relative;aspect-ratio:1/1;border-radius:14px;border:1px solid #ffffff2e;
+    background:#ffffff12;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:2px;font-size:15px;font-weight:900;transition:transform .1s;padding:2px;}
+  .lvCell:active{transform:scale(.93);}
+  .lvCell .stars{font-size:10px;color:var(--accent);letter-spacing:1px;}
+  .lvCell .best{font-size:8.5px;font-weight:600;opacity:.7;}
+  .lvCell.locked{opacity:.35;}
+  .lvCell.cleared{border-color:var(--accent);box-shadow:0 0 10px rgba(255,183,3,.25);}
+  .lvCell.endless{grid-column:span 4;aspect-ratio:auto;padding:12px;flex-direction:row;gap:10px;
+    border-color:var(--cyan);font-size:14px;}
+  .lvCell.endless .best{font-size:11px;}
+  #lvFooter{display:flex;gap:12px;margin-top:14px;align-items:center;flex-wrap:wrap;justify-content:center;}
+  #resetConfirm{display:flex;gap:8px;}
+
+  #resStars{font-size:40px;letter-spacing:8px;color:var(--accent);text-shadow:0 0 18px rgba(255,183,3,.6);min-height:46px;}
+  #resTitle{font-size:28px;font-weight:900;}
+  .resRows{display:flex;flex-direction:column;gap:6px;font-size:14px;min-width:230px;margin:8px 0;}
+  .resRows .row{display:flex;justify-content:space-between;background:#ffffff0f;padding:8px 14px;border-radius:10px;border:1px solid #ffffff1c;}
+  .resRows .row b{color:var(--accent);}
+  #newRecord{color:#7ef9ff;font-weight:900;letter-spacing:.15em;animation:pulse 1s infinite;}
+
+  #errBox,#loadBox{z-index:40;background:rgba(10,10,22,.92);}
+  #errBox p,#loadBox p{font-size:13px;opacity:.9;line-height:1.8;}
+  .spinner{width:42px;height:42px;border-radius:50%;border:4px solid #ffffff22;border-top-color:var(--accent);
+    animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #rotHint{position:absolute;top:calc(52px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+    z-index:15;background:#000c;border:1px solid #ffffff33;border-radius:99px;padding:8px 16px;font-size:12px;
+    font-weight:700;white-space:nowrap;pointer-events:none;}
+  .credit{position:absolute;bottom:calc(10px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;
+    font-size:10px;opacity:.45;letter-spacing:.15em;}
+</style>
+</head>
+<body>
+<div id="frame">
+  <canvas id="gl"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="topbar">
+      <div id="stInfo">
+        <div id="stName">STAGE</div>
+        <div id="stSub"><span data-i18n="ui_height">高さ</span> <b id="heightVal">0.00</b> m &nbsp;/&nbsp; <span data-i18n="ui_target">目標</span> <b id="targetVal">3.6</b> m</div>
+        <div id="statRow"><span><span data-i18n="ui_score">スコア</span> <b id="scoreVal">0</b></span><span><span data-i18n="ui_best">ベスト</span> <b id="bestVal">-</b></span></div>
+        <div id="hearts"></div>
+      </div>
+      <div id="hudBtns">
+        <button class="iconBtn" id="btnSoundH">🔊</button>
+        <button class="iconBtn" id="btnPause">⏸</button>
+      </div>
+    </div>
+    <div id="progressWrap"><div id="progressBar"></div></div>
+    <div id="hintBar"></div>
+    <div id="floatLayer"></div>
+  </div>
+  <div id="rotHint" class="hidden"></div>
+
+  <!-- TITLE -->
+  <div class="screen" id="scrTitle">
+    <div class="gameTitle">SWING★STACK</div>
+    <div class="subTitle" id="tSub">CRANE BALANCE TOWER</div>
+    <div class="tagline" id="tTag"></div>
+    <div class="titleBtns">
+      <button class="btn" id="btnStart"></button>
+      <button class="btn small ghost hidden" id="btnEndless"></button>
+      <button class="btn small ghost" id="btnHow"></button>
+    </div>
+    <div class="langSwitch">
+      <button class="lb" data-lang="ja">日本語</button>
+      <button class="lb" data-lang="en">English</button>
+      <button class="lb" data-lang="zh">中文</button>
+    </div>
+    <div class="btnRow">
+      <button class="btn small ghost" id="btnSoundT">🔊 SOUND</button>
+    </div>
+    <div class="credit">THREE.JS + CANNON-ES</div>
+  </div>
+
+  <!-- HOW TO -->
+  <div class="screen hidden" id="scrHow">
+    <div class="scrTitle" id="howTitle">HOW TO PLAY</div>
+    <div id="howBox"></div>
+    <button class="btn small" id="btnHowBack"></button>
+  </div>
+
+  <!-- LEVEL SELECT -->
+  <div class="screen hidden" id="scrLevels">
+    <div class="scrTitle" id="lvTitle">STAGE SELECT</div>
+    <div id="levelGrid"></div>
+    <div id="lvFooter">
+      <button class="btn small ghost" id="btnBackTitle"></button>
+      <button class="btn small ghost" id="btnReset"></button>
+      <span id="resetConfirm" class="hidden">
+        <button class="btn small" id="btnResetYes"></button>
+        <button class="btn small ghost" id="btnResetNo"></button>
+      </span>
+    </div>
+  </div>
+
+  <!-- PAUSE -->
+  <div class="screen hidden" id="scrPause">
+    <div class="scrTitle" id="pauseTitle">PAUSED</div>
+    <div class="titleBtns">
+      <button class="btn" id="btnResume"></button>
+      <button class="btn small ghost" id="btnRestart"></button>
+      <button class="btn small ghost" id="btnQuit"></button>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="screen hidden" id="scrResult">
+    <div id="resStars"></div>
+    <div id="resTitle"></div>
+    <div id="newRecord" class="hidden"></div>
+    <div class="resRows">
+      <div class="row"><span id="lblScore"></span><b id="resScore">0</b></div>
+      <div class="row"><span id="lblHeight"></span><b id="resHeight">0.00 m</b></div>
+      <div class="row"><span id="lblPerfect"></span><b id="resPerfect">0</b></div>
+      <div class="row"><span id="lblBest"></span><b id="resBest">-</b></div>
+    </div>
+    <div class="btnRow">
+      <button class="btn small ghost" id="btnRetry"></button>
+      <button class="btn small hidden" id="btnNext"></button>
+      <button class="btn small ghost" id="btnToLevels"></button>
+    </div>
+  </div>
+
+  <div class="screen hidden" id="loadBox"><div class="spinner"></div><p id="loadMsg"></p></div>
+  <div class="screen hidden" id="errBox"><p>⚠️</p><p id="errMsg"></p></div>
+</div>
+
+<script>
+  // boot watchdog: CDN libs failed to load?
+  window.__booted = false;
+  setTimeout(function(){
+    if(!window.__booted && !document.getElementById('errBox').classList.contains('hidden')) {}
+    if(!window.__booted){
+      document.getElementById('loadBox').classList.add('hidden');
+      document.getElementById('errBox').classList.remove('hidden');
+      var msgs={ja:'3Dライブラリの読み込みに失敗しました。インターネット接続を確認してください。',
+        en:'Failed to load 3D libraries. Please check your internet connection.',
+        zh:'加载3D库失败，请检查您的网络连接。'};
+      var l=(function(){try{return JSON.parse(localStorage.getItem('swingstack_v1')||'{}').lang||'ja'}catch(e){return 'ja'}})();
+      document.getElementById('errMsg').textContent = msgs[l]||msgs.en;
+    }
+  }, 12000);
+</script>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
+
+/* ============================================================
+   SWING★STACK 3D— crane timing stacking action game
+   Three.js (rendering) + cannon-es (physics)
+   ============================================================ */
+
+/* ---------------- i18n ---------------- */
+const I18N = {
+  ja:{
+    sub:'クレーン・バランスタワー', tag:'クレーンのタイミングで、どこまで高く!?','ui_height':'高さ','ui_target':'目標','ui_score':'スコア','ui_best':'ベスト',
+    btn_start:'はじめる', btn_continue:'つづきから', btn_endless:'🔁 無限スタック', btn_how:'あそび方', btn_back:'もどる', btn_reset:'データを消す',
+    reset_q:'セーブデータを削除しますか?', reset_yes:'削除', reset_no:'キャンセル',
+    lv_title:'ステージセレクト', lv_clear:'クリア済み', lv_endless:'∞ 無限スタック', lv_endless_best:'最高',
+    how_title:'あそび方',
+    how:['🕒 クレーンがパーツを振りながら移動中。タイミングよくタップ（スペースキー可）してパーツを落とそう！',
+         '🎯 クレーンは毎回“いろいろな振り方”で動く。直線・ふりこ・ウェーブ・スライド…予測しよう。',
+         '⚖️ タワーの真ん中に近いほど PERFECT!! 加点。バランスよく積むのが高スコアのコツ。',
+         '📏 点線までタワーを積めばステージクリア！ 星はミスの少なさで決まる。',
+         '💥 パーツが場外に落ちたらミス。ミス3回で失敗。落下中は風にも注意！'],
+    hint_tap:'タップでパーツを落とす！', sw_linear:'まっすぐ', sw_pendulum:'ふりこ', sw_wave:'Wウェーブ', sw_drift:'スライド', sw_combo:'MIX',
+    f_perfect:'PERECT!!', f_miss:'MISS!!', f_target:'クリア!!',
+    res_clear:'ステージクリア！', res_fail:'タワー崩壊…',
+    lbl_score:'スコア', lbl_height:'最大高さ', lbl_perfect:'PERFECT', lbl_best:'ベスト記録', res_new:'★ ニューレコード ★',
+    btn_retry:'もう一度', btn_next:'つぎへ ▶', btn_select:'セレクト', pause_title:'ポーズ', btn_resume:'つづける', btn_restart:'やり直す', btn_quit:'やめて戻る',
+    sound_on:'🔊 サウンドON', sound_off:'🔇 サウンドOFF', rot_hint:'📱 縦画面のほうが見やすいです',
+  },
+  en:{
+    sub:'CRANE BALANCE TOWER', tag:'How high can you stack\nswinging crane parts!?','ui_height':'HEIGHT','ui_target':'TARGET','ui_score':'SCORE','ui_best':'BEST',
+    btn_start:'START', btn_continue:'CONTINUE', btn_endless:'🔁 ENDLESS MODE', btn_how:'HOW TO PLAY', btn_back:'BACK', btn_reset:'RESET DATA',
+    reset_q:'Delete all save data?', reset_yes:'DELETE', reset_no:'CANCEL',
+    lv_title:'STAGE SELECT', lv_clear:'CLEARED', lv_endless:'∞ ENDLESS STACK', lv_endless_best:'BEST',
+    how_title:'HOW TO PLAY',
+    how:['🕒 The crane carries a part while swinging. TAP (or press SPACE) at the right moment to drop it!',
+         '🎯 The crane swings in a DIFFERENT way every time — straight, pendulum, wave, slide… predict it.',
+         '⚖️ Land close to the tower center for PERFECT!! bonus. Balance is the key to a high score.',
+         '📏 Reach the dashed line to CLEAR the stage! Stars depend on how few misses you make.',
+         '💥 Parts that fall out of the field count as a miss. 3 misses = game over. Watch out for wind!'],
+    hint_tap:'TAP TO DROP!', sw_linear:'STRAIGHT', sw_pendulum:'PENDULUM', sw_wave:'W-WAVE', sw_drift:'SLIDE', sw_combo:'MIX',
+    f_perfect:'PERFECT!!', f_miss:'MISS!!', f_target:'CLEAR!!',
+    res_clear:'STAGE CLEAR!', res_fail:'TOWER COLLAPSED…',
+    lbl_score:'SCORE', lbl_height:'MAX HEIGHT', lbl_perfect:'PERFECT', lbl_best:'BEST SCORE', res_new:'★ NEW RECORD ★',
+    btn_retry:'RETRY', btn_next:'NEXT ▶', btn_select:'SELECT', pause_title:'PAUSED', btn_resume:'RESUME', btn_restart:'RESTART', btn_quit:'QUIT',
+    sound_on:'🔊 SOUND ON', sound_off:'🔇 SOUND OFF', rot_hint:'📱 Portrait view is easier',
+  },
+  zh:{
+    sub:'吊车平衡高塔', tag:'把握吊车的时机，你能叠多高！?','ui_height':'高度','ui_target':'目标','ui_score':'分数','ui_best':'最佳',
+    btn_start:'开始游戏', btn_continue:'继续游戏', btn_endless:'🔁 无限模式', btn_how:'玩法说明', btn_back:'返回', btn_reset:'删除存档',
+    reset_q:'确定删除所有存档吗?', reset_yes:'删除', reset_no:'取消',
+    lv_title:'关卡选择', lv_clear:'已通关', lv_endless:'∞ 无限叠叠乐', lv_endless_best:'最高',
+    how_title:'玩法说明',
+    how:['🕒 吊车一边摆动一边移动零件。看准时机点击屏幕（也可按空格键）掉落零件！',
+         '🎯 吊车每次都换一种摆动方式——直线、钟摆、波浪、平移……好好预测。',
+         '⚖️ 落点越接近塔的中心越能触发 PERFECT!! 加分。平衡是高分的诀窍。',
+         '📏 把塔叠到虚线高度即可通关！星级取决于失误的多少。',
+         '💥 零件掉出场外算失误，3 次失误即失败。下落时还要小心风！'],
+    hint_tap:'点击屏幕掉落零件！', sw_linear:'直线', sw_pendulum:'钟摆', sw_wave:'W波浪', sw_drift:'平移', sw_combo:'混合',
+    f_perfect:'完美!!', f_miss:'失误!!', f_target:'通关!!',
+    res_clear:'通关成功！', res_fail:'高塔倒塌了…',
+    lbl_score:'得分', lbl_height:'最大高度', lbl_perfect:'PERFECT', lbl_best:'最佳记录', res_new:'★ 新纪录 ★',
+    btn_retry:'再来一次', btn_next:'下一关 ▶', btn_select:'选关', pause_title:'暂停', btn_resume:'继续', btn_restart:'重新开始', btn_quit:'退出',
+    sound_on:'🔊 音效开', sound_off:'🔇 音效关', rot_hint:'📱 竖屏游玩体验更佳',
+  }
+};
+// fix typo-safe key
+I18N.ja.f_perfect = 'PERFECT!!';
+
+/* ---------------- save ---------------- */
+const SAVE_KEY='swingst…e_v1';
+let save = {lang:'ja', sound:true, cleared:{}, best:{}};
+try{ const raw=localStorage.getItem(SAVE_KEY); if(raw){ const s=JSON.parse(raw); save={...save,...s}; } }catch(e){}
+if(!['ja','en','zh'].includes(save.lang)) save.lang='ja';
+function persist(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }catch(e){} }
+const $=id=>document.getElementById(id);
+function t(k){ return (I18N[save.lang] && I18N[save.lang][k]) || I18N.en[k] || k; }
+
+/* ---------------- audio (WebAudio, procedural) ---------------- */
+const SFX = {
+  ctx:null, on:save.sound, master:null, bgmGain:null, bgmTimer:null,
+  ensure(){ if(this.ctx) return; try{
+      const AC = window.AudioContext||window.webkitAudioContext; this.ctx=new AC();
+      this.master=this.ctx.createGain(); this.master.gain.value=this.on?0.5:0; this.master.connect(this.ctx.destination);
+      this.bgmGain=this.ctx.createGain(); this.bgmGain.gain.value=0.06; this.bgmGain.connect(this.master);
+    }catch(e){ this.ctx=null; } },
+  resume(){ if(this.ctx && this.ctx.state==='suspended') this.ctx.resume(); },
+  tone(freq,dur,type,vol,slideTo){ if(!this.ctx||!this.on) return; const c=this.ctx,o=c.createOscillator(),g=c.createGain();
+    o.type=type||'sine'; o.frequency.setValueAtTime(freq,c.currentTime);
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20,slideTo),c.currentTime+dur);
+    g.gain.setValueAtTime((vol||0.2),c.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+dur);
+    o.connect(g); g.connect(this.master); o.start(); o.stop(c.currentTime+dur+0.02); },
+  noise(dur,vol,freqQ){ if(!this.ctx||!this.on) return; const c=this.ctx;
+    const len=Math.floor(c.sampleRate*dur), buf=c.createBuffer(1,len,c.sampleRate), d=buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
+    const s=c.createBufferSource(); s.buffer=buf; const f=c.createBiquadFilter(); f.type='lowpass'; f.frequency.value=freqQ||800;
+    const g=c.createGain(); g.gain.value=vol||0.3; s.connect(f); f.connect(g); g.connect(this.master); s.start(); },
+  click(){ this.tone(660,0.06,'triangle',0.15); },
+  drop(){ this.tone(880,0.22,'sine',0.12,220); },
+  hit(v){ const p=Math.min(1,(v||3)/8); this.noise(0.12,0.25+p*0.3,500+p*700); this.tone(90+p*40,0.14,'sine',0.25,55); },
+  perfect(){ [660,880,1320].forEach((f,i)=>setTimeout(()=>this.tone(f,0.22,'triangle',0.2),i*70)); },
+  miss(){ this.noise(0.3,0.5,300); this.tone(200,0.4,'sawtooth',0.15,60); },
+  swingLabel(){ this.tone(440,0.1,'triangle',0.08); },
+  clear(){ [523,659,784,1047,1319].forEach((f,i)=>setTimeout(()=>this.tone(f,0.3,'triangle',0.22),i*110)); },
+  fail(){ [392,330,262,196].forEach((f,i)=>setTimeout(()=>this.tone(f,0.3,'sawtooth',0.12),i*160)); },
+  startBgm(){ if(!this.ctx||this.bgmTimer) return; const scale=[262,294,330,392,440,523]; let step=0;
+    this.bgmTimer=setInterval(()=>{ if(!this.on||!this.ctx) return;
+      if(step%4===0){ const n=scale[(Math.random()*scale.length)|0]/2; this.bgmNote(n,1.9,'sine',0.05); }
+      if(Math.random()<0.7){ const n=scale[(Math.random()*scale.length)|0]; this.bgmNote(n*(Math.random()<0.3?2:1),0.5,'triangle',0.03); }
+      step++; },520); },
+  bgmNote(f,dur,type,vol){ const c=this.ctx,o=c.createOscillator(),g=c.createGain(); o.type=type;
+    o.frequency.value=f*(0.98+Math.random()*0.04);
+    g.gain.setValueAtTime(0,c.currentTime); g.gain.linearRampToValueAtTime(vol,c.currentTime+0.15);
+    g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+dur);
+    o.connect(g); g.connect(this.bgmGain); o.start(); o.stop(c.currentTime+dur+0.05); },
+  setOn(v){ this.on=v; save.sound=v; persist(); if(this.master) this.master.gain.value=v?0.5:0; }
+};
+function unlockAudio(){ SFX.ensure(); SFX.resume(); }
+document.addEventListener('pointerdown', unlockAudio, {once:true});
+document.addEventListener('keydown', unlockAudio, {once:true});
+
+/* ---------------- part types ---------------- */
+const TYPES = [
+  {n:'tall',  c:0xff5d73, mass:0.5, hangTop:0.425, geo:()=>new THREE.BoxGeometry(0.9,0.85,0.75), shapes:()=>[{s:new CANNON.Box(new CANNON.Vec3(0.45,0.425,0.375)), o:new CANNON.Vec3(0,0,0)}]},
+  {n:'tall2', c:0xff9f1c, mass:0.65,hangTop:0.6,   geo:()=>new THREE.BoxGeometry(0.72,1.2,0.72), shapes:()=>[{s:new CANNON.Box(new CANNON.Vec3(0.36,0.6,0.36)), o:new CANNON.Vec3(0,0,0)}]},
+  {n:'wide',  c:0xffd23f, mass:0.7, hangTop:0.25,  geo:()=>new THREE.BoxGeometry(1.9,0.5,0.95),  shapes:()=>[{s:new CANNON.Box(new CANNON.Vec3(0.95,0.25,0.475)), o:new CANNON.Vec3(0,0,0)}]},
+  {n:'plate', c:0x2ec4b6, mass:0.5, hangTop:0.15,  geo:()=>new THREE.BoxGeometry(2.5,0.3,1.05),  shapes:()=>[{s:new CANNON.Box(new CANNON.Vec3(1.25,0.15,0.525)), o:new CANNON.Vec3(0,0,0)}]},
+  {n:'bar',   c:0x4cc9f0, mass:0.5, hangTop:0.175, geo:()=>new THREE.BoxGeometry(1.7,0.35,0.42),  shapes:()=>[{s:new CANNON.Box(new CANNON.Vec3(0.85,0.175,0.21)), o:new CANNON.Vec3(0,0,0)}]},
+  {n:'ball',  c:0x9b5de5, mass:0.85,hangTop:0.42,  ball:true, geo:()=>new THREE.SphereGeometry(0.42,28,20), shapes:()=>[{s:new CANNON.Sphere(0.42), o:new CANNON.Vec3(0,0,0)}]},
+  {n:'cyl',   c:0xf15bb5, mass:0.55,hangTop:0.4,   rotY:true, geo:()=>new THREE.CylinderGeometry(0.5,0.5,0.8,22), shapes:()=>[{s:new CANNON.Cylinder(0.5,0.5,0.8,14), o:new CANNON.Vec3(0,0,0)}]},
+  {n:'cyl2',  c:0x00bbf9, mass:0.5, hangTop:0.6,   rotY:true, geo:()=>new THREE.CylinderGeometry(0.3,0.3,1.2,18), shapes:()=>[{s:new CANNON.Cylinder(0.3,0.3,1.2,12), o:new CANNON.Vec3(0,0,0)}]},
+  {n:'hex',   c:0x8ac926, mass:0.5, hangTop:0.25,  rotY:true, geo:()=>new THREE.CylinderGeometry(0.55,0.55,0.5,6), shapes:()=>[{s:new CANNON.Cylinder(0.55,0.55,0.5,6), o:new CANNON.Vec3(0,0,0)}]},
+  {n:'tri',   c:0xff7f50, mass:0.45,hangTop:0.3,   rotY:true, geo:()=>new THREE.CylinderGeometry(0.52,0.52,0.6,3), shapes:()=>[{s:new CANNON.Cylinder(0.52,0.52,0.6,3), o:new CANNON.Vec3(0,0,0)}]},
+  {n:'L',     c:0x43aa8b, mass:0.6, hangTop:1.0,   geo:()=>{ const g=new THREE.Group(); return null; },
+    group:true, geos:()=>[
+      {g:new THREE.BoxGeometry(0.85,0.4,0.7), p:[-0.075,0.2,0]},
+      {g:new THREE.BoxGeometry(0.35,0.8,0.7), p:[0.25,0.6,0]}],
+    shapes:()=>[{s:new CANNON.Box(new CANNON.Vec3(0.425,0.2,0.35)), o:new CANNON.Vec3(-0.075,0.2,0)},
+                {s:new CANNON.Box(new CANNON.Vec3(0.175,0.4,0.35)), o:new CANNON.Vec3(0.25,0.6,0)}]},
+  {n:'slab',  c:0x8d99ae, mass:0.8, hangTop:0.3,   geo:()=>new THREE.BoxGeometry(1.2,0.6,1.0),   shapes:()=>[{s:new CANNON.Box(new CANNON.Vec3(0.6,0.3,0.5)), o:new CANNON.Vec3(0,0,0)}]},
+];
+
+/* ---------------- stages ---------------- */
+const STAGES = [
+  {id:'1',  parts:[0,2],      pat:['linear'],                          tgt:3.2,  miss:3, grav:-18, wind:0,    pw:3.4, tag:'EASY'},
+  {id:'2',  parts:[0,3,6],    pat:['linear','pendulum'],               tgt:4.0,  miss:3, grav:-18, wind:0,    pw:3.2},
+  {id:'3',  parts:[1,3,7],    pat:['pendulum','wave'],                 tgt:4.8,  miss:3, grav:-20, wind:0.4,  pw:3.0},
+  {id:'4',  parts:[4,6,10],   pat:['drift','pendulum','combo'],        tgt:5.2,  miss:3, grav:-20, wind:0.5,  pw:2.9},
+  {id:'5',  parts:[8,0,9],    pat:['pendulum','wave'],                 tgt:5.6,  miss:3, grav:-20, wind:0,    pw:2.9},
+  {id:'6',  parts:[3,2,11],   pat:['drift','combo'],                   tgt:5.2,  miss:3, grav:-20, wind:0.7,  pw:2.7},
+  {id:'7',  parts:[10,10,0,3],pat:['pendulum','drift','combo'],        tgt:6.2,  miss:3, grav:-20, wind:0,    pw:2.7},
+  {id:'8',  parts:[5,0,3],    pat:['pendulum','wave'],                 tgt:5.4,  miss:3, grav:-20, wind:0.3,  pw:2.8},
+  {id:'9',  parts:[7,1,2],    pat:['linear','wave'],                   tgt:7.0,  miss:3, grav:-22, wind:0,    pw:2.6},
+  {id:'10', parts:[8,5,4],    pat:['pendulum','combo'],                tgt:6.6,  miss:3, grav:-22, wind:0.6,  pw:2.6},
+  {id:'11', parts:[11,9,10],  pat:['drift','pendulum','linear'],       tgt:8.6,  miss:3, grav:-22, wind:0.5,  pw:2.4},
+  {id:'12', parts:[5,7,10,2], pat:['pendulum','combo','wave','drift'], tgt:9.6,  miss:3, grav:-24, wind:0.8,  pw:2.4},
+  {id:'e',  parts:[0,1,2,3,4,5,6,7,8,9,10,11], pat:['linear','pendulum','wave','drift','combo'],
+            tgt:0, miss:3, grav:-22, wind:0.9, pw:2.6, endless:true},
+];
+const stageById = id => STAGES.find(s=>s.id===id);
+const isCleared = id => !!save.cleared[id];
+function unlocked(id){ if(id==='e') return true; const idx=STAGES.findIndex(s=>s.id===id); if(idx<=0) return true; return isCleared(STAGES[idx-1].id); }
+
+/* crane swing pattern base configs (horizontal amplitudes & speeds) */
+const PAT = {
+  linear:  {B:2.0, w:1.7},
+  pendulum:{A:1.9, wA:2.3, L:1},
+  wave:    {B:1.5, w:2.1, A:1.1, wA:3.1, L:1, C:0.5, wC:1.7},
+  drift:   {tri:2.3, sp:1.2, C:0.5, wC:1.9},
+  combo:   {B:1.1, w:1.4, A:1.3, wA:2.6, L:1},
+};
+const PAT_NAME = {linear:'sw_linear', pendulum:'sw_pendulum', wave:'sw_wave', drift:'sw_drift', combo:'sw_combo'};
+
+/* ---------------- three.js scene ---------------- */
+const frame=$('frame'), canvas=$('gl');
+let renderer;
+try{
+  renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false});
+}catch(e){ $('loadBox').classList.add('hidden'); $('errBox').classList.remove('hidden'); throw e; }
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.setSize(frame.clientWidth, frame.clientHeight, false);
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x191a35);
+const camera=new THREE.PerspectiveCamera(55, frame.clientWidth/frame.clientHeight, 0.1, 120);
+camera.position.set(0,2.5,14.5);
+
+const hemi=new THREE.HemisphereLight(0xbfd4ff, 0x30281e, 0.9); scene.add(hemi);
+const dir=new THREE.DirectionalLight(0xfff1d6, 1.5);
+dir.position.set(6,16,9); dir.castShadow=true;
+dir.shadow.mapSize.set(1024,1024);
+dir.shadow.camera.left=-9; dir.shadow.camera.right=9; dir.shadow.camera.top=22; dir.shadow.camera.bottom=-6;
+dir.shadow.camera.far=60; scene.add(dir);
+const fill=new THREE.DirectionalLight(0x88aaff,0.35); fill.position.set(-7,6,-6); scene.add(fill);
+
+/* ground plaza */
+const ground=new THREE.Mesh(new THREE.CylinderGeometry(9,9.6,1.2,40),
+  new THREE.MeshStandardMaterial({color:0x2a2c4e, roughness:0.95}));
+ground.position.y=-1.6; ground.receiveShadow=true; scene.add(ground);
+const groundRim=new THREE.Mesh(new THREE.TorusGeometry(9.3,0.06,8,48),
+  new THREE.MeshBasicMaterial({color:0x3a3d6b}));
+groundRim.rotation.x=Math.PI/2; groundRim.position.y=-1.0; scene.add(groundRim);
+
+/* ---------------- physics world ---------------- */
+let world=null;
+const GRAV_BODY = new CANNON.Material('mat');
+function makeWorld(g){
+  const w=new CANNON.World({gravity:new CANNON.Vec3(0,g,0)});
+  // NOTE: NaiveBroadphase (not SAP) — parts are added at runtime each drop;
+  // SAP's cached sort list can miss newly-added bodies. Pair count stays small (<25 bodies).
+  w.solver.iterations=28; w.solver.tolerance=0.001;
+  w.defaultContactMaterial.material=GRAV_BODY;
+  w.defaultContactMaterial.friction=0.7;
+  w.defaultContactMaterial.restitution=0.04;
+  return w;
+}
+
+/* ---------------- field / crane visuals ---------------- */
+let platformBody=null, platformMesh=null, platformTopY=0;
+const fieldRoot=new THREE.Group(); scene.add(fieldRoot);
+const gantry={cols:[],beam:null,trolley:null,cable:null,hook:null};
+const crane={ t:0, pivotY:14, beamY:14, cfg:null, hook:new THREE.Vector3(0,9.5,0), L:4.5 };
+const CRANE_PIVOT_MIN=14, HOOK_ABOVE_TOP=4.6;
+let targetLine=null, guideLine=null;
+
+function buildField(stage){
+  clearField();
+  menuDecor.visible=false;
+  world=makeWorld(stage.grav);
+  const pw=stage.pw;
+  const pmat=new THREE.MeshStandardMaterial({color:0x5c6ac9, roughness:0.6, metalness:0.15});
+  platformMesh=new THREE.Mesh(new THREE.BoxGeometry(pw,1.0,pw), pmat);
+  platformMesh.position.y=-0.5; platformMesh.receiveShadow=true; platformMesh.castShadow=true;
+  fieldRoot.add(platformMesh);
+  const edge=new THREE.Mesh(new THREE.BoxGeometry(pw+0.12,0.08,pw+0.12),
+    new THREE.MeshBasicMaterial({color:0xffd23f}));
+  edge.position.y=0.02; fieldRoot.add(edge);
+  platformBody=new CANNON.Body({mass:0, shape:new CANNON.Box(new CANNON.Vec3(pw/2,0.5,pw/2))});
+  platformBody.position.set(0,-0.5,0); world.addBody(platformBody);
+  platformTopY=0;
+
+  // gantry (stands behind the drop plane so parts never clip it)
+  const GZ=-2.2;
+  const gmat=new THREE.MeshStandardMaterial({color:0xd7dce8, roughness:0.4, metalness:0.5});
+  for(const sx of [-1,1]){
+    const col=new THREE.Mesh(new THREE.BoxGeometry(0.28,1,0.28), gmat);
+    col.position.set(sx*(pw/2+1.1),0,GZ); fieldRoot.add(col); gantry.cols.push(col);
+  }
+  gantry.beam=new THREE.Mesh(new THREE.BoxGeometry(pw+4.2,0.3,0.34), gmat);
+  gantry.beam.position.z=GZ; fieldRoot.add(gantry.beam);
+  gantry.trolley=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.42,0.6),
+    new THREE.MeshStandardMaterial({color:0xffb703, roughness:0.4, metalness:0.3}));
+  gantry.trolley.position.z=GZ; fieldRoot.add(gantry.trolley);
+  gantry.cable=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,1,6),
+    new THREE.MeshStandardMaterial({color:0x9aa4b8, roughness:0.5, metalness:0.6}));
+  fieldRoot.add(gantry.cable);
+  gantry.hook=new THREE.Mesh(new THREE.SphereGeometry(0.09,10,8),
+    new THREE.MeshStandardMaterial({color:0xffb703, metalness:0.5, roughness:0.3}));
+  fieldRoot.add(gantry.hook);
+  gantry.gz=GZ;
+  updateGantry(crane.beamY=CRANE_PIVOT_MIN);
+
+  // target line
+  if(stage.tgt>0){
+    const tlY=stage.tgt;
+    const pts=[new THREE.Vector3(-3.1,tlY,0),new THREE.Vector3(3.1,tlY,0)];
+    targetLine=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineDashedMaterial({color:0x7ef9ff, dashSize:0.22, gapSize:0.16, linewidth:1}));
+    targetLine.computeLineDistances(); fieldRoot.add(targetLine);
+    guideLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0.05,0),new THREE.Vector3(0,tlY,0)]),
+      new THREE.LineBasicMaterial({color:0x7ef9ff, transparent:true, opacity:0.22}));
+    fieldRoot.add(guideLine);
+  }
+}
+function clearField(){
+  parts.forEach(p=>{ scene.remove(p.mesh); if(p.body&&world) world.removeBody(p.body); });
+  parts.length=0; attached=null; rings.length=0; flashes.length=0;
+  world=null;
+  while(fieldRoot.children.length){ const c=fieldRoot.children.pop(); fieldRoot.remove(c); }
+  gantry.cols.length=0; gantry.beam=gantry.trolley=gantry.cable=gantry.hook=null;
+  targetLine=guideLine=null;
+  // dispose shared-ish materials/geoms to keep memory sane
+  scene.traverse(o=>{ if(o.userData.tempDispose){ if(o.geometry)o.geometry.dispose(); if(o.material)o.material.dispose(); } });
+}
+function updateGantry(beamY){
+  crane.beamY=beamY;
+  if(!gantry.beam) return;
+  gantry.beam.position.y=beamY;
+  gantry.cols.forEach(c=>{ c.scale.y=beamY+0.15; c.position.y=(beamY+0.15)/2-0.075; });
+}
+
+/* ---------------- game state ---------------- */
+let state='menu';          // menu | playing | paused | result
+let scr='title';           // title | how | levels | pause | result
+let stage=STAGES[0];
+let parts=[];              // {mesh, body, type, landed, missed, perfect}
+let attached=null;         // {mesh, type, yaw}
+let nextDropAt=0, lastDropAt=-9;
+let lives=3, score=0, perfectCount=0, towerTop=0, dropCount=0, maxTowerTop=0;
+let shakeAmp=0, over=false, camPos=new THREE.Vector3(0,2.5,14.5), camLook=new THREE.Vector3(0,0.6,0);
+let menuSpin=0;
+const rings=[], flashes=[];
+
+/* ---------------- crane motion ---------------- */
+function tri(u){ u=((u%4)+4)%4; return u<1?u : u<3?2-u : u-4; } // -2..2
+function newCfg(){
+  const pk=stage.pat[(Math.random()*stage.pat.length)|0];
+  const base=PAT[pk];
+  const j=(v,k=0.3)=> v==null?undefined : v*(1-k+Math.random()*2*k);
+  const ph=()=>Math.random()*Math.PI*2;
+  const cfg={name:pk};
+  if(base.B!=null){ cfg.B=j(base.B); cfg.w=j(base.w,0.25); cfg.pB=ph(); }
+  if(base.A!=null){ cfg.A=j(base.A); cfg.wA=j(base.wA,0.25); cfg.pA=ph(); }
+  if(base.tri!=null){ cfg.tri=j(base.tri); cfg.sp=j(base.sp,0.3); cfg.pT=ph(); }
+  if(base.C!=null){ cfg.C=j(base.C); cfg.wC=j(base.wC,0.3); cfg.pC=ph(); }
+  return cfg;
+}
+function hookAt(tt, out){
+  const c=crane.cfg;
+  let x=0;
+  if(c.B!=null) x+=c.B*Math.sin(c.w*tt+c.pB);
+  if(c.tri!=null) x+=c.tri*tri(c.sp*tt+c.pT/2);
+  x=THREE.MathUtils.clamp(x,-2.85,2.85);
+  const th=(c.A!=null? c.A : 0)/crane.L*Math.sin((c.wA||2.2)*tt+(c.pA||0));
+  const bob=(c.C!=null? c.C:0)*Math.sin((c.wC||1.6)*tt+(c.pC||0));
+  out.set(x, crane.pivotY - crane.L*Math.cos(th) + bob, 0);
+  return th;
+}
+
+/* ---------------- part spawn / drop ---------------- */
+function pickType(){ const arr=stage.parts; return TYPES[arr[(Math.random()*arr.length)|0]]; }
+function makeMesh(type){
+  let mesh;
+  const mat=new THREE.MeshStandardMaterial({color:type.c, roughness:0.55, metalness:0.12});
+  if(type.group){
+    mesh=new THREE.Group();
+    type.geos().forEach(gg=>{ const m=new THREE.Mesh(gg.g, mat); m.position.set(...gg.p); m.castShadow=true; m.receiveShadow=true; mesh.add(m); });
+    mesh.userData.mat=mat;
+  }else{
+    mesh=new THREE.Mesh(type.geo(), mat); mesh.castShadow=true; mesh.receiveShadow=true; mesh.userData.mat=mat;
+  }
+  return mesh;
+}
+function spawnAttached(){
+  crane.cfg=newCfg();
+  crane.t=0;
+  const type=pickType();
+  const mesh=makeMesh(type);
+  const yaw= type.rotY ? Math.random()*Math.PI*2 : (Math.random()-0.5)*0.3;
+  mesh.rotation.y=yaw;
+  scene.add(mesh);
+  attached={mesh, type, yaw};
+  SFX.swingLabel();
+  floatText(t(PAT_NAME[crane.cfg.name]), '#9fd8ff', 0.55, true);
+}
+function dropPart(){
+  if(!attached) return;
+  const a=attached; attached=null;
+  const hook=crane.hook;
+  const body=new CANNON.Body({mass:a.type.mass});
+  a.type.shapes().forEach(ss=> body.addShape(ss.s, ss.o));
+  body.position.set(hook.x, hook.y - a.type.hangTop, 0);
+  const q=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), a.yaw);
+  body.quaternion.set(q.x,q.y,q.z,q.w);
+  body.allowSleep=true; body.sleepSpeedLimit=0.18; body.sleepTimeLimit=0.4;
+  body.linearDamping=0.06; body.angularDamping=0.2;
+  world.addBody(body);
+  const p={mesh:a.mesh, body, type:a.type, landed:false, missed:false, perfect:false, sinceDrop:0};
+  body.addEventListener('collide', ev=>onLand(p, ev));
+  parts.push(p);
+  dropCount++; lastDropAt=gameTime;
+  nextDropAt=gameTime+0.55;
+  SFX.drop();
+}
+function onLand(p, ev){
+  if(p.landed || over) return;
+  p.landed=true;
+  let imp=1; try{ imp=Math.abs(ev.contact.getImpactVelocityAlongNormal()); }catch(e){}
+  SFX.hit(imp); shakeAmp=Math.min(0.5, imp*0.045);
+  const d=Math.hypot(p.body.position.x, p.body.position.z);
+  if(d<0.32){
+    p.perfect=true; perfectCount++; score+=250;
+    SFX.perfect(); floatText(t('f_perfect'),'#ffd166');
+    spawnRing(new THREE.Vector3(p.body.position.x, p.body.position.y, p.body.position.z));
+  }
+  const mat=p.mesh.userData.mat;
+  if(mat){ mat.emissive=new THREE.Color(0xffffff); mat.emissiveIntensity=0.55; flashes.push({m:mat,k:1}); }
+  updateScoreHud();
+}
+function removePart(p){
+  const i=parts.indexOf(p); if(i>=0) parts.splice(i,1);
+  if(world&&p.body) world.removeBody(p.body);
+  scene.remove(p.mesh);
+}
+function onMiss(){
+  if(over) return;
+  lives--; SFX.miss(); floatText(t('f_miss'),'#ff5d73'); shakeAmp=Math.max(shakeAmp,0.4);
+  updateHeartsHud();
+  if(lives<=0) endStage(false);
+}
+function spawnRing(pos){
+  const m=new THREE.Mesh(new THREE.TorusGeometry(0.5,0.05,8,28),
+    new THREE.MeshBasicMaterial({color:0xffd166, transparent:true, opacity:0.9}));
+  m.rotation.x=Math.PI/2; m.position.copy(pos); scene.add(m);
+  rings.push({m,k:1});
+}
+
+/* ---------------- wind ---------------- */
+function windForce(){
+  if(!stage.wind) return 0;
+  return stage.wind*(0.55+0.45*Math.sin(gameTime*0.7+1.3))*(Math.abs(Math.sin(gameTime*0.23+2.1))>0.75?1.35:1)*0.9;
+}
+
+/* ---------------- stage flow ---------------- */
+let gameTime=0, lastRAF=performance.now();
+function startStage(st){
+  stage=st;
+  buildField(stage);
+  lives=stage.miss; score=0; perfectCount=0; dropCount=0; towerTop=0; maxTowerTop=0;
+  over=false; attached=null; nextDropAt=0; gameTime=0;
+  crane.t=0; crane.pivotY=CRANE_PIVOT_MIN; crane.beamY=CRANE_PIVOT_MIN;
+  camPos.set(0,2.5,14.5); camLook.set(0,0.6,0);
+  state='playing'; showScreen(null);
+  $('hud').classList.remove('hidden');
+  $('stName').textContent=(stage.id==='e'? t('lv_endless') : (save.lang==='ja'? 'ステージ '+stage.id : 'STAGE '+stage.id))+(stage.tag?' — '+stage.tag:'');
+  $('targetVal').textContent= stage.tgt>0? stage.tgt.toFixed(1):'∞';
+  $('progressWrap').classList.toggle('hidden', !!stage.endless);
+  $('hintBar').textContent=t('hint_tap');
+  $('bestVal').textContent= save.best[stage.id]!=null? Math.round(save.best[stage.id]) : '-';
+  updateHeartsHud(); updateScoreHud(); updateHeightHud();
+  spawnAttached();
+}
+function endStage(win){
+  if(over) return; over=true;
+  if(attached){ scene.remove(attached.mesh); attached=null; }
+  const heightScore=Math.round(maxTowerTop*100);
+  const finalScore= win? score+heightScore+lives*500 : score;
+  const rec=(save.best[stage.id]==null);
+  const isBest= win? maxTowerTop>=(stage.tgt||Infinity) : maxTowerTop>=(save.best[stage.id]||0);
+  const prevBest=save.best[stage.id];
+  if(save.best[stage.id]==null || finalScore>save.best[stage.id]) save.best[stage.id]=finalScore;
+  if(stage.endless){
+    const prevE=save.best['e_h']||0;
+    if(maxTowerTop>prevE){ save.best['e_h']=maxTowerTop; if(!prevE) {} }
+  }
+  if(win) save.cleared[stage.id]=Math.max(save.cleared[stage.id]||0, Math.max(1,(lives)));
+  persist();
+  state='result';
+  win? SFX.clear() : SFX.fail();
+  setTimeout(()=>showResult(win, finalScore, prevBest), 500);
+}
+function showResult(win, finalScore, prevBest){
+  $('hud').classList.add('hidden');
+  showScreen('result');
+  $('resTitle').textContent= win? t('res_clear') : t('res_fail');
+  $('resTitle').style.color= win? '#7ef9ff':'#ff5d73';
+  const stars= win? (lives>=3?3: lives===2?2:1) : 0;
+  $('resStars').textContent= '★'.repeat(stars)+'☆'.repeat(3-stars);
+  $('resScore').textContent=Math.round(finalScore);
+  $('resHeight').textContent=maxTowerTop.toFixed(2)+' m';
+  $('resPerfect').textContent='× '+perfectCount;
+  $('resBest').textContent= save.best[stage.id]!=null? Math.round(save.best[stage.id]) : '-';
+  const nr= finalScore> (prevBest||0);
+  $('newRecord').classList.toggle('hidden', !nr);
+  $('newRecord').textContent=t('res_new');
+  $('lblScore').textContent=t('lbl_score'); $('lblHeight').textContent=t('lbl_height');
+  $('lblPerfect').textContent=t('lbl_perfect'); $('lblBest').textContent=t('lbl_best');
+  $('btnRetry').textContent=t('btn_retry'); $('btnNext').textContent=t('btn_next'); $('btnToLevels').textContent=t('btn_select');
+  const nextIdx=STAGES.findIndex(s=>s.id===stage.id)+1;
+  const hasNext= win && nextIdx>0 && nextIdx<STAGES.length && !stage.endless;
+  $('btnNext').classList.toggle('hidden', !hasNext);
+  if(hasNext) $('btnNext').onclick=()=>startStage(STAGES[nextIdx]);
+}
+
+/* ---------------- HUD helpers ---------------- */
+function updateHeartsHud(){
+  $('hearts').innerHTML=[0,1,2].map(i=>`<span class="hp${i<lives?'':' off'}">♥</span>`).join('');
+}
+function updateScoreHud(){ $('scoreVal').textContent=Math.round(score); }
+function updateHeightHud(){
+  $('heightVal').textContent=towerTop.toFixed(2);
+  if(stage && stage.tgt>0){
+    $('progressBar').style.width=Math.min(100, towerTop/stage.tgt*100).toFixed(1)+'%';
+  }
+}
+function floatText(msg, color, y=0, small=false){
+  const el=document.createElement('div');
+  el.className='fmsg'+(small?' small':'');
+  el.style.color=color||'#fff';
+  el.style.top=(26+(y*14))+'%';
+  el.textContent=msg;
+  $('floatLayer').appendChild(el);
+  setTimeout(()=>el.remove(),1200);
+}
+
+/* ---------------- screens ---------------- */
+function showScreen(name){
+  scr=name||scr;
+  ['title','how','levels','pause','result'].forEach(s=>$('scr'+s[0].toUpperCase()+s.slice(1)).classList.add('hidden'));
+  if(name) $('scr'+name[0].toUpperCase()+name.slice(1)).classList.remove('hidden');
+}
+function goTitle(){ state='menu'; menuDecor.visible=true; showScreen('title'); $('hud').classList.add('hidden'); applyLang(); }
+function goLevels(){ state='menu'; menuDecor.visible=true; buildLevelGrid(); showScreen('levels'); $('hud').classList.add('hidden'); applyLang(); }
+function buildLevelGrid(){
+  const g=$('levelGrid'); g.innerHTML='';
+  STAGES.forEach(st=>{
+    const cell=document.createElement('button');
+    const unl=unlocked(st.id), cl=isCleared(st.id);
+    if(st.endless){
+      cell.className='lvCell endless';
+      const bh=save.best['e_h'];
+      cell.innerHTML=`<span>${t('lv_endless')}</span><span class="best">${bh?('MAX '+bh.toFixed(2)+' m'):''}</span>`;
+    }else{
+      cell.className='lvCell'+(unl?'':' locked')+(cl?' cleared':'');
+      const stars=cl? '★'.repeat(cl)+'☆'.repeat(3-cl):'';
+      const best=save.best[st.id];
+      cell.innerHTML=`<span>${unl?st.id:'🔒'}</span><span class="stars">${stars}</span><span class="best">${best!=null?best:''}</span>`;
+    }
+    cell.onclick=()=>{ if(unl){ SFX.click(); startStage(st);} };
+    g.appendChild(cell);
+  });
+}
+function applyLang(){
+  document.documentElement.lang=save.lang;
+  document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.dataset.i18n));
+  $('tSub').textContent=t('sub');
+  $('tTag').textContent=t('tag');
+  const hasSave= Object.keys(save.cleared).length>0 || Object.keys(save.best).length>0;
+  $('btnStart').textContent= hasSave? t('btn_continue'):t('btn_start');
+  $('btnEndless').classList.remove('hidden');
+  $('btnEndless').textContent=t('btn_endless');
+  $('btnHow').textContent=t('btn_how');
+  $('btnSoundT').textContent= SFX.on? t('sound_on'):t('sound_off');
+  $('btnSoundH').textContent= SFX.on?'🔊':'🔇';
+  $('howTitle').textContent=t('how_title');
+  $('howBox').innerHTML=t('how').map(l=>`<div>${l}</div>`).join('');
+  $('btnHowBack').textContent=t('btn_back');
+  $('lvTitle').textContent=t('lv_title');
+  $('btnBackTitle').textContent=t('btn_back');
+  $('btnReset').textContent=t('btn_reset');
+  $('btnResetYes').textContent=t('reset_yes'); $('btnResetNo').textContent=t('reset_no');
+  $('pauseTitle').textContent=t('pause_title');
+  $('btnResume').textContent=t('btn_resume'); $('btnRestart').textContent=t('btn_restart'); $('btnQuit').textContent=t('btn_quit');
+  $('btnRetry').textContent=t('btn_retry'); $('btnNext').textContent=t('btn_next'); $('btnToLevels').textContent=t('btn_select');
+  document.querySelectorAll('.langSwitch .lb').forEach(b=>b.classList.toggle('on', b.dataset.lang===save.lang));
+  $('rotHint').textContent=t('rot_hint');
+  if(stage) $('hintBar').textContent=t('hint_tap');
+  if(scr==='levels') buildLevelGrid();
+}
+
+/* ---------------- input ---------------- */
+frame.addEventListener('pointerdown', e=>{
+  if(e.button!==undefined && e.button!==0) return;
+  if(state==='playing' && !over && attached && gameTime-lastDropAt>0.3){
+    dropPart();
+  }
+});
+window.addEventListener('keydown', e=>{
+  if(e.code==='Space'||e.code==='Enter'){
+    if(state==='playing' && !over && attached && gameTime-lastDropAt>0.3){ e.preventDefault(); dropPart(); }
+  }
+  if(e.code==='KeyP'||e.code==='Escape'){ if(state==='playing') pauseGame(); else if(state==='paused') resumeGame(); }
+});
+function pauseGame(){ if(state!=='playing')return; state='paused'; showScreen('pause'); }
+function resumeGame(){ if(state!=='paused')return; state='playing'; showScreen(null); lastRAF=performance.now(); }
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden && state==='playing') pauseGame(); });
+
+$('btnStart').onclick=()=>{ SFX.click(); goLevels(); };
+$('btnEndless').onclick=()=>{ SFX.click(); startStage(stageById('e')); };
+$('btnHow').onclick=()=>{ SFX.click(); showScreen('how'); };
+$('btnHowBack').onclick=()=>{ SFX.click(); showScreen('title'); };
+$('btnBackTitle').onclick=()=>{ SFX.click(); goTitle(); };
+$('btnReset').onclick=()=>{ $('btnReset').classList.add('hidden'); $('resetConfirm').classList.remove('hidden'); };
+$('btnResetNo').onclick=()=>{ $('resetConfirm').classList.add('hidden'); $('btnReset').classList.remove('hidden'); };
+$('btnResetYes').onclick=()=>{
+  save={lang:save.lang, sound:save.sound, cleared:{}, best:{}}; persist();
+  $('resetConfirm').classList.add('hidden'); $('btnReset').classList.remove('hidden'); buildLevelGrid();
+};
+function toggleSound(){ SFX.ensure(); SFX.setOn(!SFX.on); SFX.click(); applyLang(); }
+$('btnSoundT').onclick=toggleSound;
+$('btnSoundH').onclick=toggleSound;
+$('btnPause').onclick=()=>{ SFX.click(); pauseGame(); };
+$('btnResume').onclick=()=>{ SFX.click(); resumeGame(); };
+$('btnRestart').onclick=()=>{ SFX.click(); startStage(stage); };
+$('btnQuit').onclick=()=>{ SFX.click(); goLevels(); };
+$('btnRetry').onclick=()=>{ SFX.click(); startStage(stage); };
+$('btnToLevels').onclick=()=>{ SFX.click(); goLevels(); };
+document.querySelectorAll('.langSwitch .lb').forEach(b=>{
+  b.onclick=()=>{ save.lang=b.dataset.lang; persist(); SFX.click(); applyLang(); };
+});
+
+/* rotate hint for mobile landscape */
+function checkRotateHint(){
+  const coarse=matchMedia('(pointer: coarse)').matches;
+  const land=matchMedia('(orientation: landscape)').matches;
+  $('rotHint').classList.toggle('hidden', !(coarse&&land&&state==='playing'));
+}
+matchMedia('(orientation: landscape)').addEventListener?.('change', checkRotateHint);
+
+/* resize */
+function onResize(){
+  const w=frame.clientWidth,h=frame.clientHeight;
+  renderer.setSize(w,h,false);
+  camera.aspect=w/h;
+  camera.fov = h>w ? 55 : 48;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(onResize).observe(frame);
+onResize();
+
+/* ---------------- main loop ---------------- */
+const hookTmp=new THREE.Vector3();
+function loop(now){
+  requestAnimationFrame(loop);
+  let dt=(now-lastRAF)/1000; lastRAF=now;
+  if(dt>0.1) dt=0.1;
+
+  if(world && (state==='playing' || state==='result')){
+    // ----- crane: pivot rises as the tower grows -----
+    if(state==='playing'){
+      gameTime+=dt;
+      // wind pushes only airborne parts
+      if(stage.wind){
+        const wf=windForce()*2.0;
+        const zero=new CANNON.Vec3(0,0,0);
+        for(const p of parts){
+          if(!p.landed || p.body.velocity.lengthSquared()>0.3){
+            p.body.applyForce(new CANNON.Vec3(wf*p.type.mass,0,0), zero);
+          }
+        }
+      }
+      const targetPivot=Math.max(CRANE_PIVOT_MIN, towerTop+HOOK_ABOVE_TOP+4.6);
+      crane.pivotY+= (targetPivot-crane.pivotY)*Math.min(1,dt*1.2);
+      crane.L=crane.pivotY-(towerTop+HOOK_ABOVE_TOP);
+      updateGantry(crane.pivotY);
+      crane.t+=dt;
+      const th=hookAt(crane.t, crane.hook);
+      // gantry visuals: trolley rides the beam; cable runs trolley -> hook in 3D
+      if(gantry.trolley){
+        const pivX=THREE.MathUtils.clamp(crane.hook.x - crane.L*Math.sin(th), -3.4, 3.4);
+        gantry.trolley.position.set(pivX, crane.pivotY-0.3, gantry.gz);
+        gantry.hook.position.copy(crane.hook);
+        const p0=new THREE.Vector3(pivX, crane.pivotY-0.15, gantry.gz);
+        const dirV=crane.hook.clone().sub(p0); const len=dirV.length();
+        gantry.cable.scale.y=Math.max(0.05,len);
+        gantry.cable.position.copy(p0).addScaledVector(dirV,0.5);
+        gantry.cable.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dirV.normalize());
+      }
+      // attached part follows hook; otherwise wait for next drop window
+      if(attached){
+        attached.mesh.position.set(crane.hook.x, crane.hook.y-attached.type.hangTop, 0);
+      }else if(!over && gameTime>=nextDropAt){
+        spawnAttached();
+      }
+    }
+
+    world.step(1/120, dt, 10);
+
+    // ----- sync meshes, track tower top, remove out-of-field parts -----
+    let top=0;
+    for(let i=parts.length-1;i>=0;i--){
+      const p=parts[i], b=p.body;
+      p.mesh.position.set(b.position.x,b.position.y,b.position.z);
+      p.mesh.quaternion.set(b.quaternion.x,b.quaternion.y,b.quaternion.z,b.quaternion.w);
+      b.updateAABB();
+      const ay=b.aabb? b.aabb.upperBound.y : b.position.y;
+      if(ay>top) top=ay;
+      p.sinceDrop+=dt;
+      const pos=b.position;
+      const out = pos.y < -3.4 || Math.abs(pos.x)>6.8 || Math.abs(pos.z)>6.8;
+      if(out && p.sinceDrop>0.25){
+        if(!p.missed){ p.missed=true; onMiss(); }
+        removePart(p);
+      }
+    }
+    towerTop=Math.max(0,top);
+    if(towerTop>maxTowerTop) maxTowerTop=towerTop;
+    if(state==='playing'){
+      updateHeightHud();
+      // ----- clear check (settled tower, target reached) -----
+      if(!stage.endless && !over && !attached && towerTop>=stage.tgt){
+        const settled = parts.every(p=> p.body.sleepState===CANNON.Body.SLEEPING ||
+          (p.body.velocity.lengthSquared()<0.012 && p.body.angularVelocity.lengthSquared()<0.05));
+        const allLanded = parts.every(p=>p.landed);
+        if(settled && allLanded && parts.length>0){
+          floatText(t('f_target'),'#7ef9ff');
+          endStage(true);
+        }
+      }
+    }
+  }
+
+  // effects (always update)
+  for(let i=rings.length-1;i>=0;i--){ const r=rings[i]; r.k-=dt*1.4;
+    if(r.k<=0){ scene.remove(r.m); r.m.geometry.dispose(); r.m.material.dispose(); rings.splice(i,1); continue; }
+    r.m.scale.setScalar(1+(1-r.k)*1.6); r.m.material.opacity=r.k; }
+  for(let i=flashes.length-1;i>=0;i--){ const f=flashes[i]; f.k-=dt*2.2;
+    if(f.k<=0){ f.m.emissiveIntensity=0; flashes.splice(i,1); continue; } f.m.emissiveIntensity=f.k*0.55; }
+
+  // camera
+  if(state==='menu'){
+    menuSpin+=dt*0.25;
+    camera.position.set(Math.sin(menuSpin)*8, 4.5+Math.sin(menuSpin*0.7), Math.cos(menuSpin)*8);
+    camera.lookAt(0,1.6,0);
+  }else{
+    const topY=towerTop;
+    const centerX=0;
+    const centerY= topY*0.5+2;
+    const halfView= topY+ (camera.fov===55? 7.6:9.5);
+    const camZ=Math.min(46, halfView/Math.tan(THREE.MathUtils.degToRad(camera.fov/2)));
+    const tgtPos=new THREE.Vector3(centerX, centerY + halfView*0.08, camZ);
+    camPos.lerp(tgtPos, Math.min(1,dt*2.2));
+    const tgtLook=new THREE.Vector3(centerX, topY*0.45+0.6, 0);
+    camLook.lerp(tgtLook, Math.min(1,dt*2.2));
+    const sx=(Math.random()-0.5)*shakeAmp, sy=(Math.random()-0.5)*shakeAmp;
+    camera.position.set(camPos.x+sx, camPos.y+sy, camPos.z);
+    camera.lookAt(camLook);
+    shakeAmp=Math.max(0, shakeAmp-dt*1.2);
+  }
+
+  checkRotateHint();
+  renderer.render(scene, camera);
+}
+
+/* menu idle decor: a little stacked tower on the title */
+function buildMenuDecor(){
+  const g=new THREE.Group();
+  let y=0;
+  const sizes=[[1.1,0.5],[0.9,0.6],[0.6,0.9],[1.0,0.4]];
+  const cols=[0xff5d73,0xffd23f,0x2ec4b6,0x9b5de5];
+  sizes.forEach((s,i)=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(s[0],s[1],0.8),
+      new THREE.MeshStandardMaterial({color:cols[i], roughness:0.5}));
+    m.position.set((Math.random()-0.5)*0.12, y+s[1]/2, 0); m.castShadow=true; m.userData.tempDispose=true;
+    g.add(m); y+=s[1];
+  });
+  g.position.set(0,-0.5,0);
+  scene.add(g);
+  return g;
+}
+const menuDecor=buildMenuDecor();
+
+/* boot */
+window.__booted=true;
+$('loadBox').classList.add('hidden');
+applyLang();
+showScreen('title');
+requestAnimationFrame(n=>{ lastRAF=n; loop(n); });
+</script>
+</body>
+</html>
